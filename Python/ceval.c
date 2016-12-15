@@ -2268,9 +2268,7 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
             v = TOP();
             u = SECOND();
             STACKADJ(-2);
-            //err = PyObject_SetAttr(v, w, u); /* v.w = u */
-	    // modified by Alex
-	    err = PyObject_SetAttrSpecial(v, w, u, f->f_globals); 
+            err = PyObject_SetAttr(v, w, u); /* v.w = u */
             Py_DECREF(v);
             Py_DECREF(u);
             if (err == 0) DISPATCH();

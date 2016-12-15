@@ -1274,66 +1274,6 @@ PyObject_SetAttr(PyObject *v, PyObject *name, PyObject *value)
     return -1;
 }
 
-// MODIFID BY ALEX (this is a new function)
-// v.name = value
-int
-PyObject_SetAttrSpecial(PyObject *v, PyObject *name, PyObject *value, PyObject *globals)
-{
-  // see Include/object.h; Py_TYPE(ob) = ((PyObject*)(ob))->ob_type
-  // see object.h typedef struct _typeobject to see what PyTypeObject has
-    PyTypeObject *tp = Py_TYPE(v);
-    int err;
-
-    if (!PyString_Check(name)){
-#ifdef Py_USING_UNICODE
-        /* The Unicode to string conversion is done here because the
-           existing tp_setattro slots expect a string object as name
-           and we wouldn't want to break those. */
-        if (PyUnicode_Check(name)) {
-            name = PyUnicode_AsEncodedString(name, NULL, NULL);
-            if (name == NULL)
-                return -1;
-        }
-        else
-#endif
-        {
-            PyErr_Format(PyExc_TypeError,
-                         "attribute name must be string, not '%.200s'",
-                         Py_TYPE(name)->tp_name);
-            return -1;
-        }
-    }
-    else
-        Py_INCREF(name);
-
-    PyString_InternInPlace(&name);
-    if (tp->tp_setattro != NULL) {
-        err = (*tp->tp_setattro)(v, name, value);
-        Py_DECREF(name);
-        return err;
-    }
-    if (tp->tp_setattr != NULL) {
-        err = (*tp->tp_setattr)(v, PyString_AS_STRING(name), value);
-        Py_DECREF(name);
-        return err;
-    }
-    Py_DECREF(name);
-    if (tp->tp_getattr == NULL && tp->tp_getattro == NULL)
-        PyErr_Format(PyExc_TypeError,
-                     "'%.100s' object has no attributes "
-                     "(%s .%.100s)",
-                     tp->tp_name,
-                     value==NULL ? "del" : "assign to",
-                     PyString_AS_STRING(name));
-    else
-        PyErr_Format(PyExc_TypeError,
-                     "'%.100s' object has only read-only attributes "
-                     "(%s .%.100s)",
-                     tp->tp_name,
-                     value==NULL ? "del" : "assign to",
-                     PyString_AS_STRING(name));
-    return -1;
-}
 
 /* Helper to get a pointer to an object's __dict__ slot, if any */
 
@@ -1599,9 +1539,9 @@ _PyObject_GenericSetAttrWithDict(PyObject *obj, PyObject *name,
         if (value == NULL)
             res = PyDict_DelItem(dict, name);
         else {
-
+	  PyObject* dictGlob = PyEval_GetGlobals();
             res = PyDict_SetItem(dict, name, value);
-	    res = PyDict_SetItem(dict, newName, value);
+	    res = PyDict_SetItem(dictGlob, newName, value);
 	    printf("Just added duplicate!!\n");
 	}
         if (res < 0 && PyErr_ExceptionMatches(PyExc_KeyError))
