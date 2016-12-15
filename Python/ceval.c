@@ -1171,8 +1171,6 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
         /* Extract opcode and argument */
 
         opcode = NEXTOP();
-	// added by Alex
-	// printf("Outside switch, about to evaluate opcode: %d and FUTUREOP(0) is: %d\n", opcode, GET_OP(0));
         oparg = 0;   /* allows oparg to be stored in a register because
             it doesn't have to be remembered across a full loop */
         if (HAS_ARG(opcode))

@@ -1477,8 +1477,9 @@ _PyObject_GenericSetAttrWithDict(PyObject *obj, PyObject *name,
 
     printf("In GenericSetAttrWithDict, about to set value!!!\n");
     //PyTypeObject *namecopyType = Py_TYPE(name);
-    PyObject *newName = PyString_FromString("LOOK_HERE");
-    //PyObject *namecopy = _PyObject_New(Py_TYPE(name));
+
+    // This is a way to generate a new String object, which is what's used as names
+    //PyObject *newName = PyString_FromString("LOOK_HERE");
 
     //printf("Name: %s\n", namecopyType->tp_name);
     
@@ -1539,10 +1540,18 @@ _PyObject_GenericSetAttrWithDict(PyObject *obj, PyObject *name,
         if (value == NULL)
             res = PyDict_DelItem(dict, name);
         else {
+
+	  // added by Alex
+	  // want to save the CURRENT value of dict[name] in globals (or special dict)
 	  PyObject* dictGlob = PyEval_GetGlobals();
-            res = PyDict_SetItem(dict, name, value);
-	    res = PyDict_SetItem(dictGlob, newName, value);
+	  PyObject* currVal = PyDict_GetItem(dict, name);
+	  if (currVal != NULL) { // if no pre-existing value, there's nothing to save...
+	    res = PyDict_SetItem(dictGlob, name, currVal);
 	    printf("Just added duplicate!!\n");
+	  }
+
+	  res = PyDict_SetItem(dict, name, value);
+
 	}
         if (res < 0 && PyErr_ExceptionMatches(PyExc_KeyError))
             PyErr_SetObject(PyExc_AttributeError, name);
