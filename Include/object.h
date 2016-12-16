@@ -30,7 +30,7 @@ contains a pointer to itself!).
 
 Objects do not float around in memory; once allocated an object keeps
 the same size and address.  Objects that must hold variable-size data
-can contain pointers to variable-size parts of the object.  Not all
+pcan contain pointers to variable-size parts of the object.  Not all
 objects of the same type have the same size; but the size cannot change
 after allocation.  (These restrictions are made so a reference to an
 object can be simply a pointer -- moving an object would require
@@ -482,6 +482,7 @@ PyAPI_FUNC(PyObject *) _PyObject_NextNotImplemented(PyObject *);
 PyAPI_FUNC(PyObject *) PyObject_GenericGetAttr(PyObject *, PyObject *);
 PyAPI_FUNC(int) PyObject_GenericSetAttr(PyObject *, PyObject *, PyObject *);
 PyAPI_FUNC(void) SpecialDict_ApplyChanges(void);
+PyAPI_FUNC(void) SpecialDict_AddTo(PyObject *, PyObject *, PyObject *, PyObject *);
 PyAPI_FUNC(long) PyObject_Hash(PyObject *);
 PyAPI_FUNC(long) PyObject_HashNotImplemented(PyObject *);
 PyAPI_FUNC(int) PyObject_IsTrue(PyObject *);
