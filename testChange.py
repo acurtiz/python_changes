@@ -1,8 +1,7 @@
 import testImport
 import pprint
 import sys
-
-_SPECIAL_ = {}
+import os
 pp = pprint.PrettyPrinter(indent=4)
 
 def x():
@@ -15,12 +14,15 @@ def printSpecialDict():
 def printChanged(name, oldval, newval):
     print 'Changed ' + name + ' from ' + str(oldval) + ' to ' + str(newval)
 
+# to freeze, we just need to make sure _SPECIAL_ actually exists (auto-record if it exists)
 def FREEZE(): 
     print '##############'
     print '#### Freezing, i.e. recording changes in special dictionary now'
     print '##############'
+    global _SPECIAL_
     _SPECIAL_ = {}
 
+# if any attribute is called _SPECIAL_ and is set, cpython function unrolling changes is called... change later
 def UNFREEZE():
     print '##############'
     print '#### Unfreezing, i.e. rolling back changes'
@@ -46,7 +48,18 @@ print 'sys.open is now: ' + str(sys.byteorder)
 print 'sys.exc_info is now: ' + str(sys.exc_info)
 print 'testImport.check is now: ' + str(testImport.check)
 
-print '\n############################'
-print 'Going to try and print special dictionary - expect an error because rolling back changes should have deleted it from global dictionary'
-print '#############################'
+print 'Does _SPECIAL_ dictionary exist in globals anymore? Checking... ' + str('_SPECIAL_' in globals())
+
+# NOTE: the following doesn't work - apparently globals() are global only within a module
+'''
+print 'Now going to try importing a module that actually imports a built-in and changes its value'
+print 'os.open is: ' + str(os.open)
+FREEZE()
+print globals()
+print '.....................................................'
+import testImport2
+print os
 printSpecialDict()
+UNFREEZE()
+print 'os.open is: ' + str(os.open)
+'''
