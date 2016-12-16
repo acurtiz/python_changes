@@ -1475,13 +1475,11 @@ _PyObject_GenericSetAttrWithDict(PyObject *obj, PyObject *name,
     PyObject **dictptr;
     int res = -1;
 
-    printf("In GenericSetAttrWithDict, about to set value!!!\n");
-    //PyTypeObject *namecopyType = Py_TYPE(name);
-
-    // This is a way to generate a new String object, which is what's used as names
-    //PyObject *newName = PyString_FromString("LOOK_HERE");
-
-    //printf("Name: %s\n", namecopyType->tp_name);
+    // get the name of the attribute being setas a char *
+    char *attributeName;
+    Py_ssize_t len;
+    PyString_AsStringAndSize(name, &attributeName, &len);
+    //printf("Attribute name: %s\n", attributeName);
     
     if (!PyString_Check(name)){
 #ifdef Py_USING_UNICODE
@@ -1540,15 +1538,31 @@ _PyObject_GenericSetAttrWithDict(PyObject *obj, PyObject *name,
         if (value == NULL)
             res = PyDict_DelItem(dict, name);
         else {
-
+	  
 	  // added by Alex
-	  // want to save the CURRENT value of dict[name] in globals (or special dict)
-	  PyObject* dictGlob = PyEval_GetGlobals();
-	  PyObject* currVal = PyDict_GetItem(dict, name);
-	  if (currVal != NULL) { // if no pre-existing value, there's nothing to save...
-	    res = PyDict_SetItem(dictGlob, name, currVal);
-	    printf("Just added duplicate!!\n");
+	  // want to save the CURRENT value of the attribute in special dictionary:
+	  // Format of that dictionary:
+	  // special_dict = { module1_name: {attr1: oldval1}, module2_name: {attr1: oldval1, attr2: oldval2}}
+	  PyObject* specialDict = PyDict_GetItemString(PyEval_GetGlobals(), SPECIAL_DICT_NAME);
+	  if (specialDict != NULL) {
+	    PyObject* currVal = PyDict_GetItem(dict, name);
+
+	    PyObject* existingInSpecial = PyDict_GetItem(specialDict, name);
+	    
+	    // if the attribute name is also the dictionary name, we want to roll back the changes
+	    printf("Performing comparison between attribute %s and special name %s\n", attributeName, SPECIAL_DICT_NAME);
+	    int rollback = strcmp(attributeName, SPECIAL_DICT_NAME);
+	    printf("Result is: %d\n", rollback);
+	    if (rollback == 0) {
+	      SpecialDict_ApplyChanges();
+	    } 
+
+	    // if no pre-existing value, there's nothing to save, and if already saved it don't want to overwrite
+	    else if (currVal != NULL && existingInSpecial == NULL) { 
+	      res = PyDict_SetItem(specialDict, name, currVal);
+	    }
 	  }
+	  // end changes by Alex
 
 	  res = PyDict_SetItem(dict, name, value);
 
@@ -1577,6 +1591,34 @@ _PyObject_GenericSetAttrWithDict(PyObject *obj, PyObject *name,
   done:
     Py_DECREF(name);
     return res;
+}
+
+void
+SpecialDict_ApplyChanges() {
+  printf("Using special dict to roll back changes\n");
+  PyObject* specialDict = PyDict_GetItemString(PyEval_GetGlobals(), SPECIAL_DICT_NAME);
+
+  // iterate over the key, value pairs in dict
+  char *attributeName;
+  Py_ssize_t i;
+  PyObject *key, *value;
+  i = 0;
+  while (PyDict_Next(specialDict, &i, &key, &value)) {
+
+    // get the name
+    PyString_AsStringAndSize(key, &attributeName, NULL);
+    printf("Name of item popped: %s\n", attributeName);
+
+    // apply the change back
+    // 1) retrieve the original object who's attribute we the attribute (key) belongs to
+    // 2) set it
+    // QUESTION: can we assume it's a module??? 
+    PyObject *originalModule = PyDict_GetItemString(PyEval_GetGlobals(), "testImport");
+    PyObject *originalModulesDict = PyModule_GetDict(originalModule);
+    PyDict_SetItemString(originalModulesDict, attributeName, value);
+
+  }
+
 }
 
 int

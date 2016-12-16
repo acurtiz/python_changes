@@ -51,6 +51,8 @@ A standard interface exists for objects that contain an array of items
 whose size is determined when the object is allocated.
 */
 
+#define SPECIAL_DICT_NAME "_SPECIAL_"
+
 /* Py_DEBUG implies Py_TRACE_REFS. */
 #if defined(Py_DEBUG) && !defined(Py_TRACE_REFS)
 #define Py_TRACE_REFS
@@ -478,8 +480,8 @@ PyAPI_FUNC(PyObject **) _PyObject_GetDictPtr(PyObject *);
 PyAPI_FUNC(PyObject *) PyObject_SelfIter(PyObject *);
 PyAPI_FUNC(PyObject *) _PyObject_NextNotImplemented(PyObject *);
 PyAPI_FUNC(PyObject *) PyObject_GenericGetAttr(PyObject *, PyObject *);
-PyAPI_FUNC(int) PyObject_GenericSetAttr(PyObject *,
-                                              PyObject *, PyObject *);
+PyAPI_FUNC(int) PyObject_GenericSetAttr(PyObject *, PyObject *, PyObject *);
+PyAPI_FUNC(void) SpecialDict_ApplyChanges(void);
 PyAPI_FUNC(long) PyObject_Hash(PyObject *);
 PyAPI_FUNC(long) PyObject_HashNotImplemented(PyObject *);
 PyAPI_FUNC(int) PyObject_IsTrue(PyObject *);
