@@ -10,7 +10,7 @@ def x():
     return 'Im a string! x() just returned me!'
 
 def printSpecialDict():
-    if (False):
+    if (True):
         print 'Printing special dict: ' 
         if (STORE_IN_INTERPRETER): # store in interpreter sysdict
             testImport._PRINT_SPECIAL_ = 1
@@ -78,3 +78,14 @@ import testImport3
 print 'testImportNest.x in main file is: ' + str(testImportNest.x)
 UNFREEZE()
 print 'testImportNest.x in main file is now: ' + str(testImportNest.x)
+
+
+### TEST CASE 4
+print '\n\nAdding NEW attribute inside FREEZE()'
+FREEZE()
+testImport3.z = 3
+print 'Just set testImport3.z to ' + str(testImport3.z)
+print 'Does testImport3 have a z attribute?: ' + str('z' in testImport3.__dict__)
+
+UNFREEZE()
+print 'Does testImport3 have a z attribute?: ' + str('z' in testImport3.__dict__)

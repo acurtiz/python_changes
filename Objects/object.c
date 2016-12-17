@@ -1587,6 +1587,7 @@ SpecialDict_AddTo(PyObject *obj, PyObject *name, PyObject *value, PyObject *dict
   // SPECIAL CASE: rollback changes
   if (strcmp(attributeName, SPECIAL_DICT_NAME) == 0 && specialDict != NULL) {
     SpecialDict_ApplyChanges();
+    return;
   } 
 
   // SPECIAL CASE (for debug): print the interpreter sysdict
@@ -1612,7 +1613,9 @@ SpecialDict_AddTo(PyObject *obj, PyObject *name, PyObject *value, PyObject *dict
     // if no pre-existing value, there's nothing to save, and if already saved it don't want to overwrite
     PyObject* currVal = PyDict_GetItem(dict, name);
     PyObject* alreadyBackedUp = PyDict_GetItem(moduleDict, name);
-    if (currVal != NULL && alreadyBackedUp == NULL) {  
+    if (currVal == NULL) currVal = Py_None; // it's a new attribute, store special val
+
+    if (alreadyBackedUp == NULL) {
       res = PyDict_SetItem(moduleDict, name, currVal);
       if (res != 0) {
 	printf("PyDict_SetItem returned non-zero, potential problem (see SpecialDict_AddTo)\n");
@@ -1668,13 +1671,20 @@ SpecialDict_ApplyChanges(void)
       attributeName = PyString_AsString(key_attrName); 
       printf("-- DEBUG: Attribute name to rollback: %s\n", attributeName);
 
-      res = PyDict_SetItemString(originalModulesDict, attributeName, val_valueToRestore);
-      if (res != 0) {
-	printf("PyDict_SetItemString failed, see SpecialDict_ApplyChanges\n");
-	return; 
+      if (val_valueToRestore != Py_None) {
+	res = PyDict_SetItemString(originalModulesDict, attributeName, val_valueToRestore);
+	if (res != 0) {
+	  printf("PyDict_SetItemString failed, see SpecialDict_ApplyChanges\n");
+	  continue; 
+	}
+      } else { // SPECIAL CASE: this was a new attribute, so we actually want to remove it
+	res = PyDict_DelItemString(originalModulesDict, attributeName);
+	if (res != 0) {
+	  printf("PyDict_DelItemString failed inside SpecialDict_ApplyChanges\n");
+	  continue;
+	}
       }
     } 
-    
     // TODO: do we need to clear the inner dictionaries?
   }
 
@@ -1685,7 +1695,6 @@ SpecialDict_ApplyChanges(void)
 }
 
 void SpecialDict_PrintDict(void) {
-  int res;
   char *attributeName;
 
   // make sure we can grab the sysdict (using this instead of global, because global is 
@@ -1717,7 +1726,7 @@ void SpecialDict_PrintDict(void) {
     j = 0;
     while (PyDict_Next(value, &j, &key_attrName, &val_valueToRestore)) {
       attributeName = PyString_AsString(key_attrName); 
-      printf("-- DEBUG: Attribute name in that module: %s\n", attributeName);
+      printf("-- DEBUG: Attribute name in that module is %s and address is %p\n", attributeName, val_valueToRestore);
     } 
   }
 }
