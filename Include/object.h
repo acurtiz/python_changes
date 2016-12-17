@@ -481,8 +481,13 @@ PyAPI_FUNC(PyObject *) PyObject_SelfIter(PyObject *);
 PyAPI_FUNC(PyObject *) _PyObject_NextNotImplemented(PyObject *);
 PyAPI_FUNC(PyObject *) PyObject_GenericGetAttr(PyObject *, PyObject *);
 PyAPI_FUNC(int) PyObject_GenericSetAttr(PyObject *, PyObject *, PyObject *);
+
+// Added by Alex
 PyAPI_FUNC(void) SpecialDict_ApplyChanges(void);
 PyAPI_FUNC(void) SpecialDict_AddTo(PyObject *, PyObject *, PyObject *, PyObject *);
+PyAPI_FUNC(void) SpecialDict_BeginTracking(void);
+PyAPI_FUNC(void) SpecialDict_PrintDict(void);
+
 PyAPI_FUNC(long) PyObject_Hash(PyObject *);
 PyAPI_FUNC(long) PyObject_HashNotImplemented(PyObject *);
 PyAPI_FUNC(int) PyObject_IsTrue(PyObject *);

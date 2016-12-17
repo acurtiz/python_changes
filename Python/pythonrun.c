@@ -715,6 +715,7 @@ initmain(void)
             Py_FatalError("can't add __builtins__ to __main__");
         Py_XDECREF(bimod);
     }
+
 }
 
 /* Import the site module (not into __main__ though) */

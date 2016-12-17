@@ -837,13 +837,15 @@ PyDict_SetItem(register PyObject *op, PyObject *key, PyObject *value)
     assert(value);
     if (PyString_CheckExact(key)) {
         hash = ((PyStringObject *)key)->ob_shash;
-        if (hash == -1)
+        if (hash == -1) 
             hash = PyObject_Hash(key);
     }
     else {
         hash = PyObject_Hash(key);
-        if (hash == -1)
+        if (hash == -1) {
+	  printf ("Hash negative 1\n"); // added by Alex (this is the problem that is happening each time
             return -1;
+	}
     }
     return dict_set_item_by_hash_or_entry(op, key, hash, NULL, value);
 }

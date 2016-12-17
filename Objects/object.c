@@ -1561,20 +1561,41 @@ _PyObject_GenericSetAttrWithDict(PyObject *obj, PyObject *name,
     return res;
 }
 
-// obj is the object who's attribute we're saving
-// name is the attribute 
-// value is the value we're updating
+// parameters are the same as _PyObject_GenericSetAttrWithDict
 void
 SpecialDict_AddTo(PyObject *obj, PyObject *name, PyObject *value, PyObject *dict) 
 {
   int res;
   char *attributeName;
-  Py_ssize_t len;
-  PyString_AsStringAndSize(name, &attributeName, &len);
+  PyObject *dictContainingSpecial = PyInterpreterState_Head()->sysdict;   
 
   // want to save the CURRENT value of the attribute in special dictionary, as in:
   // special_dict = { module1_obj: {attr1: oldval1}, module2_obj: {attr1: oldval1, attr2: oldval2}}
-  PyObject* specialDict = PyDict_GetItemString(PyEval_GetGlobals(), SPECIAL_DICT_NAME);
+  if (dictContainingSpecial == NULL) { // this could be PyEval_GetGlobals() but that's per module
+    printf("error in SpecialDict_AddTo, dict containing special dictionary is null\n");
+    return;
+  }
+  PyObject *specialDict = PyDict_GetItemString(dictContainingSpecial, SPECIAL_DICT_NAME);
+
+  // SPECIAL CASE: create special dictionary (initiate tracking)
+  attributeName = PyString_AsString(name);
+  if (strcmp(attributeName, "_START_FREEZE_") == 0) {
+    SpecialDict_BeginTracking();
+    return;
+  }
+
+  // SPECIAL CASE: rollback changes
+  if (strcmp(attributeName, SPECIAL_DICT_NAME) == 0 && specialDict != NULL) {
+    SpecialDict_ApplyChanges();
+  } 
+
+  // SPECIAL CASE (for debug): print the interpreter sysdict
+  if (strcmp(attributeName, "_PRINT_SPECIAL_") == 0) {
+    SpecialDict_PrintDict();
+    return;
+  }
+
+  // NORMAL CASE: add this module/attribute to special dict
   if (specialDict != NULL) {
 	    
     // retrieve (or create if non-existent) the dictionary holding the attributes for this module
@@ -1582,57 +1603,140 @@ SpecialDict_AddTo(PyObject *obj, PyObject *name, PyObject *value, PyObject *dict
     if (moduleDict == NULL) {
       moduleDict = PyDict_New();
       res = PyDict_SetItem(specialDict, obj, moduleDict); 
-      if (res != 0) printf("PyDict_SetItem returned non-zero, potential problem (see SpecialDict_AddTo)\n");
+      if (res != 0) {
+	printf("PyDict_SetItem returned non-zero, potential problem (see SpecialDict_AddTo)\n");
+	return;
+      }
     }
-	    
-    // special thing to roll back changes (this is super hacky, should be some other way)
-    if (strcmp(attributeName, SPECIAL_DICT_NAME) == 0) {
-      SpecialDict_ApplyChanges();
-    } 
 
     // if no pre-existing value, there's nothing to save, and if already saved it don't want to overwrite
     PyObject* currVal = PyDict_GetItem(dict, name);
     PyObject* alreadyBackedUp = PyDict_GetItem(moduleDict, name);
     if (currVal != NULL && alreadyBackedUp == NULL) {  
       res = PyDict_SetItem(moduleDict, name, currVal);
-      if (res != 0) printf("PyDict_SetItem returned non-zero, potential problem (see SpecialDict_AddTo)\n");
+      if (res != 0) {
+	printf("PyDict_SetItem returned non-zero, potential problem (see SpecialDict_AddTo)\n");
+	return;
+      }
     }
   }
 }
 
 // Rollback changes in special dictionary, and empties the dictionary
 void
-SpecialDict_ApplyChanges() 
+SpecialDict_ApplyChanges(void) 
 {
-  PyObject *globalDict = PyEval_GetGlobals();
-  PyObject *specialDict = PyDict_GetItemString(globalDict, SPECIAL_DICT_NAME);
+  int res;
+  char *attributeName;
+
+  // make sure we can grab the sysdict (using this instead of global, because global is 
+  // per-module and sysdict is per-interpreter
+  //PyObject *dictContainingSpecial = PyEval_GetGlobals();
+  PyObject *dictContainingSpecial = PyInterpreterState_Head()->sysdict; 
+  if (dictContainingSpecial == NULL) {
+    printf("dictionary containing special is null\n");
+    return;
+  }
+
+  // get the actual special dictionary - if it doesn't exist, we just dont save anything
+  // note: that is intended behavior; existence of it is how we differentiate between freeze() and unfreeze()
+  PyObject *specialDict = PyDict_GetItemString(dictContainingSpecial, SPECIAL_DICT_NAME);
+  if (specialDict == NULL) return;
 
   // go through key-val pairs in special dict (key = module object, val = dict of changed attributes)
+
+  Py_ssize_t i;
+  PyObject *key, *value;
+  i = 0;
+  while (PyDict_Next(specialDict, &i, &key, &value)) {
+
+    // NOTE: this is necessary or else we get some weird artifacts
+    if (PyModule_Check(key) == 0) {
+      continue;
+    }
+
+    // get the dictionary we want to actually modify (the dictionary backing the module)
+    PyObject *originalModule = key;
+    PyObject *originalModulesDict = PyModule_GetDict(originalModule);
+    printf("- DEBUG: Module name rolling back: %s\n", PyModule_GetName(originalModule));
+    
+    // for that module, go through each changed attribute and change it
+    Py_ssize_t j;
+    PyObject *key_attrName, *val_valueToRestore;
+    j = 0;
+    while (PyDict_Next(value, &j, &key_attrName, &val_valueToRestore)) {
+      attributeName = PyString_AsString(key_attrName); 
+      printf("-- DEBUG: Attribute name to rollback: %s\n", attributeName);
+
+      res = PyDict_SetItemString(originalModulesDict, attributeName, val_valueToRestore);
+      if (res != 0) {
+	printf("PyDict_SetItemString failed, see SpecialDict_ApplyChanges\n");
+	return; 
+      }
+    } 
+    
+    // TODO: do we need to clear the inner dictionaries?
+  }
+
+  // clear and delete the special dictionary (delete as in remove entry in whatever contains it)
+  PyDict_Clear(specialDict);
+  res = PyDict_DelItemString(dictContainingSpecial, SPECIAL_DICT_NAME);
+  if (res != 0) printf("PyDict_DelItemString didnt successfully complete after applying changes\n");
+}
+
+void SpecialDict_PrintDict(void) {
+  int res;
   char *attributeName;
+
+  // make sure we can grab the sysdict (using this instead of global, because global is 
+  // per-module and sysdict is per-interpreter
+  //PyObject *dictContainingSpecial = PyEval_GetGlobals();
+  PyObject *dictContainingSpecial = PyInterpreterState_Head()->sysdict; 
+  if (dictContainingSpecial == NULL) {
+    printf("dictionary containing special is null\n");
+    return;
+  }
+
+  // get the actual special dictionary - if it doesn't exist, we just dont save anything
+  // note: that is intended behavior; existence of it is how we differentiate between freeze() and unfreeze()
+  PyObject *specialDict = PyDict_GetItemString(dictContainingSpecial, SPECIAL_DICT_NAME);
+  if (specialDict == NULL) return;
+
+  // go through key-val pairs in special dict (key = module object, val = dict of changed attributes)
   Py_ssize_t i;
   PyObject *key, *value;
   i = 0;
   while (PyDict_Next(specialDict, &i, &key, &value)) {
     
     // get the dictionary we want to actually modify (the dictionary backing the module)
-    PyObject *originalModule = key;
-    PyObject *originalModulesDict = PyModule_GetDict(originalModule);
-
+    printf("- DEBUG: Module name: %s\n", PyModule_GetName(key));
+    
     // for that module, go through each changed attribute and change it
     Py_ssize_t j;
     PyObject *key_attrName, *val_valueToRestore;
     j = 0;
     while (PyDict_Next(value, &j, &key_attrName, &val_valueToRestore)) {
-      PyString_AsStringAndSize(key_attrName, &attributeName, NULL); // pull the char* out of key_attrName
-      PyDict_SetItemString(originalModulesDict, attributeName, val_valueToRestore);
+      attributeName = PyString_AsString(key_attrName); 
+      printf("-- DEBUG: Attribute name in that module: %s\n", attributeName);
     } 
-    
-    // TODO: do we need to clear the inner dictionaries?
   }
+}
 
-  // clear and delete the special dictionary (delete as in remove entry in global)
-  PyDict_Clear(specialDict);
-  PyDict_DelItemString(globalDict, SPECIAL_DICT_NAME);
+// create the special dictionary; if it exists, attributes will automatically be stored in it
+// via SpecialDict_ApplyChanges
+void SpecialDict_BeginTracking(void) {
+  int res;
+  PyObject *dictContainingSpecial = PyInterpreterState_Head()->sysdict; 
+  if (dictContainingSpecial == NULL) {
+    printf("Issue in SpecialDict_BeginTracking, dict containing special dict is null\n");
+    return;
+  }
+  PyObject *specialDict = PyDict_New(); 
+  res = PyDict_SetItemString(dictContainingSpecial, SPECIAL_DICT_NAME, specialDict);
+  if (res != 0) {
+    printf("Problem with adding dict to interpreter in SpecialDict_BeginTracking\n");
+    return;
+  }
 }
 
 int
