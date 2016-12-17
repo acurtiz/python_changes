@@ -68,3 +68,13 @@ print 'os.open is: ' + str(os.open)
 UNFREEZE()
 print 'os.open is: ' + str(os.open)
 
+
+### TEST CASE 3 
+print '\n\nNow going to try importing a module that imports another module and changes its value'
+import testImportNest
+print 'testImportNest.x is ' + str(testImportNest.x)
+FREEZE()
+import testImport3
+print 'testImportNest.x in main file is: ' + str(testImportNest.x)
+UNFREEZE()
+print 'testImportNest.x in main file is now: ' + str(testImportNest.x)
