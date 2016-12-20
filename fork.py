@@ -13,6 +13,7 @@ for i in range(1000):
         print "error!"
     else:
         continue
-        os.wait()
+for i in range(1000):
+    os.wait()
 end = time.time()
 print end - start

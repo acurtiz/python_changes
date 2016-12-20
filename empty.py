@@ -1,0 +1,3 @@
+import blah
+
+blah.f()
