@@ -1661,7 +1661,7 @@ SpecialDict_ApplyChanges(void)
     // get the dictionary we want to actually modify (the dictionary backing the module)
     PyObject *originalModule = key;
     PyObject *originalModulesDict = PyModule_GetDict(originalModule);
-    printf("- DEBUG: Module name rolling back: %s\n", PyModule_GetName(originalModule));
+    //printf("- DEBUG: Module name rolling back: %s\n", PyModule_GetName(originalModule));
     
     // for that module, go through each changed attribute and change it
     Py_ssize_t j;
@@ -1669,7 +1669,7 @@ SpecialDict_ApplyChanges(void)
     j = 0;
     while (PyDict_Next(value, &j, &key_attrName, &val_valueToRestore)) {
       attributeName = PyString_AsString(key_attrName); 
-      printf("-- DEBUG: Attribute name to rollback: %s\n", attributeName);
+      //printf("-- DEBUG: Attribute name to rollback: %s\n", attributeName);
 
       if (val_valueToRestore != Py_None) {
 	res = PyDict_SetItemString(originalModulesDict, attributeName, val_valueToRestore);
