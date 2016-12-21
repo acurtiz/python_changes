@@ -4,9 +4,9 @@ import time
 import lambda_func
 
 def Checkpoint():
-    blah._CHECKPOINT_ = 1
+    lambda_func._CHECKPOINT_ = 1
 def Restore():
-    blah._RESTORE_ = 1
+    lambda_func._RESTORE_ = 1
 
 start = time.time()
 for i in range(1000):
