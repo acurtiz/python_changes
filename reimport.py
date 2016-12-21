@@ -1,11 +1,11 @@
 #!/usr/bin/python
 import os
 import time
-import blah
+import lambda_func
 
 start = time.time()
 for i in range(1000):
-    blah = reload(blah)
-    blah.f()
+    lambda_func = reload(lambda_func)
+    lambda_func.f()
 end = time.time()
 print end - start
